@@ -9,20 +9,18 @@ export default function LoginPage({ onLogin }) {
     try {
       const res = await axios.post("/auth/login", { email, password });
 
-      // ✅ Access Token: Authorization 헤더에서 추출
-      const rawHeader = res.headers["authorization"];
-      const accessToken = rawHeader?.startsWith("Bearer ")
-        ? rawHeader.slice(7)
-        : null;
+      // ✅ 응답 바디에서 access token 추출
+      const accessToken = res.data?.result;
 
       if (accessToken) {
         localStorage.setItem("token", accessToken);
         onLogin(accessToken); // App.jsx로 전달
       } else {
-        alert("로그인 실패: Authorization 헤더 없음");
+        alert("로그인 실패: 응답 바디에 토큰 없음");
       }
     } catch (err) {
-      alert("로그인 실패: " + (err?.response?.data?.message || err.message));
+      console.error(err);
+      alert("로그인 요청 실패");
     }
   };
 
