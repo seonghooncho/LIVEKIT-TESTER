@@ -1,3 +1,4 @@
+// src/pages/RoomPage.jsx
 import { useState } from "react";
 import { Room } from "livekit-client";
 import {
@@ -6,7 +7,7 @@ import {
   ControlBar,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import axios from "../services/api";
+import axios, { reissueAccessToken } from "../services/api";
 import MyVideoConference from "../components/MyVideoConference";
 
 const serverUrl = import.meta.env.VITE_LIVEKIT_URL;
@@ -24,14 +25,14 @@ export default function RoomPage({ memberId }) {
   const joinRoom = async () => {
     try {
       const res = await axios.get(`/livekit/token`, {
-        params: { workspaceId },
+        params: { workspaceId, roomName }, // 필요하면 roomName도 같이
       });
-      const token = res.data.result || res.data.token;
-      console.log("LiveKit 토큰:", token);
+      const token = res.data.result || res.data.token || res.data.accessToken;
       if (token) {
         await room.connect(serverUrl, token);
         setConnected(true);
-        // 카메라/마이크는 ControlBar에서 직접 켜기(최적의 UX)
+      } else {
+        alert("방 참가 실패: 토큰 없음");
       }
     } catch (e) {
       console.error("방 참가 실패:", e);
@@ -60,6 +61,18 @@ export default function RoomPage({ memberId }) {
     const newState = !screenSharing;
     await room.localParticipant.setScreenShareEnabled(newState);
     setScreenSharing(newState);
+  };
+
+  // 수동 재발급 테스트용
+  const testReissue = async () => {
+    try {
+      const newToken = await reissueAccessToken();
+      alert("재발급 성공");
+      // 이후 요청부터는 인터셉터가 자동으로 Authorization 붙임
+    } catch (e) {
+      console.error(e);
+      alert("재발급 실패");
+    }
   };
 
   return (
@@ -99,7 +112,10 @@ export default function RoomPage({ memberId }) {
             onChange={(e) => setRoomName(e.target.value)}
           />
           <br />
-          <button onClick={joinRoom}>방 참가</button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button onClick={joinRoom}>방 참가</button>
+            <button onClick={testReissue}>토큰 재발급 테스트</button>
+          </div>
         </div>
       )}
     </RoomContext.Provider>
