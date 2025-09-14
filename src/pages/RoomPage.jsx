@@ -9,6 +9,7 @@ import {
 import "@livekit/components-styles";
 import axios, { reissueAccessToken } from "../services/api";
 import MyVideoConference from "../components/MyVideoConference";
+import { getMember, issueCdnViewCookie, CDN_BASE } from "../services/api";
 
 const serverUrl = import.meta.env.VITE_LIVEKIT_URL;
 
@@ -21,6 +22,11 @@ export default function RoomPage({ memberId }) {
   const [micEnabled, setMicEnabled] = useState(true);
   const [camEnabled, setCamEnabled] = useState(true);
   const [screenSharing, setScreenSharing] = useState(false);
+
+  //아바타
+  const [avatarSrc, setAvatarSrc] = useState("");
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   const joinRoom = async () => {
     try {
@@ -75,10 +81,46 @@ export default function RoomPage({ memberId }) {
     }
   };
 
+  const handleShowAvatar = async () => {
+    setAvatarLoading(true);
+    setAvatarError("");
+    setAvatarSrc("");
+
+    try {
+      const member = await getMember();
+      // 서버 응답 형태에 맞춰 유연하게 objectKey 추출
+      const objectKey =
+        member?.profileImageObjectKey ||
+        member?.profileImage?.objectKey ||
+        member?.objectKey ||
+        member?.profileImageKey;
+
+      if (!objectKey) {
+        throw new Error("멤버 응답에 objectKey가 없습니다.");
+      }
+
+      // 1) 쿠키 발급
+      await issueCdnViewCookie(objectKey);
+
+      // 2) CDN 요청 (쿠키 자동 전송)
+      //    최신 이미지 보장 위해 임시로 캐시버스터 붙일 수 있음
+      setAvatarSrc(`${CDN_BASE}/${objectKey}`);
+    } catch (e) {
+      console.error(e);
+      setAvatarError(e?.message || "아바타 로드 실패");
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   return (
     <RoomContext.Provider value={room}>
       {connected ? (
-        <div data-lk-theme="default" style={{ height: "100vh" }}>
+        <div
+          data-lk-theme="default"
+          style={{ height: "100vh", position: "relative" }}
+        >
+          ///livekit
           <MyVideoConference />
           <RoomAudioRenderer />
           <ControlBar />
@@ -115,6 +157,23 @@ export default function RoomPage({ memberId }) {
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button onClick={joinRoom}>방 참가</button>
             <button onClick={testReissue}>토큰 재발급 테스트</button>
+            <button onClick={handleShowAvatar}>프로필 이미지 보기</button>
+          </div>
+          <div style={{ marginTop: "1rem" }}>
+            {avatarLoading && <div>불러오는 중…</div>}
+            {avatarError && (
+              <div style={{ color: "salmon" }}>{avatarError}</div>
+            )}
+            {avatarSrc && (
+              <img
+                src={avatarSrc}
+                alt="profile"
+                width={120}
+                height={120}
+                style={{ borderRadius: "50%", objectFit: "cover" }}
+                onError={() => setAvatarError("이미지 로드 실패 (쿠키 만료?)")}
+              />
+            )}
           </div>
         </div>
       )}

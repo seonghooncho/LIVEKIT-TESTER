@@ -12,6 +12,12 @@ const instanceWithCookie = axios.create({
   withCredentials: true,
 });
 
+export const GOOGLE_LOGIN_URL =
+  (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(
+    "/api",
+    ""
+  ) + "/oauth2/authorization/google";
+
 /** 수동 재발급 함수 */
 export async function reissueAccessToken() {
   const res = await instance.post("/auth/reissue", null, { skipAuth: true });
@@ -114,6 +120,33 @@ instance.interceptors.response.use(
 export async function logout() {
   await instance.post("/auth/logout", null, { skipAuth: true });
   localStorage.removeItem("token");
+}
+export const CDN_BASE =
+  import.meta.env.VITE_CDN_BASE_URL || "https://cdn.syncly-io.com";
+
+// --- 멤버 조회
+export async function getMember() {
+  const res = await instance.get("/member", { withCredentials: false }); // (백엔드가 /api/member 라우트)
+  if (res?.status !== 200) throw new Error("멤버 조회 실패");
+  // 래핑 여부에 대비해 유연 파싱
+  return res.data?.result ?? res.data;
+}
+
+// --- CloudFront Signed Cookie 발급
+export async function issueCdnViewCookie(objectKey) {
+  if (!objectKey) throw new Error("objectKey가 없습니다.");
+  const res = await instance.post(
+    "/s3/view-cookie",
+    { objectKey },
+    {
+      // skipAuth: true, // 백엔드가 인증 필요 없다면 사용
+    }
+  );
+  if (!res?.status || res.status >= 400) {
+    throw new Error(`view-cookie 실패: ${res?.status}`);
+  }
+  // Set-Cookie는 브라우저가 자동 저장
+  return true;
 }
 
 export default instance;
