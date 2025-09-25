@@ -166,13 +166,15 @@ export default function RoomPage({ memberId }) {
             )}
             {avatarSrc && (
               <img
-                src={avatarSrc}
-                alt="profile"
-                width={120}
-                height={120}
-                style={{ borderRadius: "50%", objectFit: "cover" }}
-                onError={() => setAvatarError("이미지 로드 실패 (쿠키 만료?)")}
-              />
+              src={avatarSrc}
+              alt="profile"
+              onLoad={() => console.log('img loaded')}
+              onError={(e) => {
+                console.log('img error', e);
+                setAvatarError("이미지 로드 실패 (네트워크/캐시/디코딩)");
+              }}
+            /> 
+
             )}
           </div>
         </div>
